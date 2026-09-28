@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Run terragrunt with all HTTPS egress forced onto IPv4, via a throwaway local CONNECT proxy.
+#   usage: tg-cf plan | tg-cf apply | tg-cf <any terragrunt args>
+# Needed while the Cloudflare tokens' IP allowlists hold only jenkci1's IPv4 address.
+set -euo pipefail
+
+here=$(dirname "$(readlink -f "$0")")
+port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+
+python3 "$here/v4proxy.py" "$port" >/dev/null 2>&1 &
+proxy_pid=$!
+trap 'kill $proxy_pid 2>/dev/null' EXIT
+
+for _ in $(seq 50); do
+  (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null && break
+  sleep 0.1
+done
+
+HTTPS_PROXY="http://127.0.0.1:$port" NO_PROXY="" terragrunt "$@"
