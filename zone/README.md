@@ -64,7 +64,7 @@ assigned (`rule_refs`, and `ref` on raw rules). Pull them from `GET /zones/<id>/
 | Custom WAF | Icinga allowlist, XML-RPC block, AI crawler block | head/tail rules, extra allowlists, extra Icinga IPs |
 | Managed WAF | Cloudflare Managed + OWASP (PL1 only) | `waf_cloudflare_managed_overrides`, `waf_owasp_score_threshold`, `waf_owasp_action` |
 | Cache rules | Health check bypass, admin bypass | `health_check_path(_operator)`, `cache_bypass_admin_paths`, `cache_everything` |
-| Bot management | SBFM managed_challenge, AI bots blocked, optimize WordPress | `is_robots_txt_managed`, `bot_preference_sync_enabled`, `bot_management_overrides` |
+| Bot management | SBFM managed_challenge, static resources exempt, AI bots blocked, optimize WordPress | `is_robots_txt_managed`, `bot_preference_sync_enabled`, `bot_management_overrides` |
 | Transforms | none | `managed_request_headers_enabled`, `managed_response_headers_enabled` |
 | Caching / SSL | Tiered cache, smart topology, cache reserve on; Universal SSL on; Total TLS off | one bool each |
 | Certificates / health checks | none | `advanced_certificates`, `healthchecks` |
@@ -78,6 +78,34 @@ assigned (`rule_refs`, and `ref` on raw rules). Pull them from `GET /zones/<id>/
   `tls_1_2_only`, `waf`).
 - Content scanning by default (`manage_content_scanning = false`): 5.26 can't import it.
 - `bot_preference_sync_enabled` and `cf_robots_variant` unless set: 5.26 doesn't read them back on import.
+
+## Provider bugs
+
+`cloudflare_bot_management` and `ai_bots_protection`. Any apply that writes this resource fails with:
+
+```
+Error: Provider produced inconsistent result after apply
+... .ai_bots_protection: was cty.StringVal("block"), but now cty.StringVal("disabled").
+```
+
+The write reaches Cloudflare and every other attribute lands, but the provider's whole-object PUT leaves
+`ai_bots_protection` on `disabled` and then errors because that is not what it planned. Two consequences: the
+apply exits non-zero even though it worked, and the resource is left tainted, so the *next* plan wants to destroy
+and recreate it. Seen on 5.26 against allangray.com.au and fidelity.com.au on 2026-09-30.
+
+Recovery, in order:
+
+```bash
+curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data '{"ai_bots_protection":"block"}' \
+  "https://api.cloudflare.com/client/v4/zones/<zone_id>/bot_management"
+terragrunt run -- untaint 'cloudflare_bot_management.this[0]'
+terragrunt plan   # expect: No changes
+```
+
+The single-field PUT is accepted, so this is the provider's request shape, not an API restriction. Check
+`ai_bots_protection` on the live zone after any apply that touched bot management, and untaint before the next
+one or you will replace the resource instead of updating it.
 
 ## IPv4-only tokens
 

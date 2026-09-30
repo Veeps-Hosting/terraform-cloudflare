@@ -69,6 +69,12 @@ locals {
   # Bot management baseline (Super Bot Fight Mode on Business), shared by every adopted zone.
   # cf_robots_variant and bot_preference_sync_enabled stay null unless set: provider 5.26 doesn't read them back on
   # import, so managing them turns adoption into a write.
+  # sbfm_static_resource_protection is off here, matching Cloudflare's own default. With it on, SBFM scores
+  # each CSS, JS, image, font and PDF request on its own, and a managed challenge reaches a subresource as
+  # 403 with an HTML body: the browser discards it, so pages render unstyled and documents fail to download.
+  # Scoring is per-request, so it costs a visitor a share of the page's assets rather than all of them, and
+  # clients behind TLS-inspecting corporate proxies score worst. Switch it on for a single zone through
+  # bot_management_overrides only where scraping of static files is the greater risk.
   bot_management = merge(
     {
       ai_bots_migration_opt_out       = false
@@ -83,7 +89,7 @@ locals {
       optimize_wordpress              = true
       sbfm_definitely_automated       = "managed_challenge"
       sbfm_likely_automated           = "managed_challenge"
-      sbfm_static_resource_protection = true
+      sbfm_static_resource_protection = false
       sbfm_verified_bots              = "allow"
       suppress_session_score          = false
     },
