@@ -109,6 +109,13 @@ locals {
       expression        = "true"
       ref               = local.refs.cache_everything
     }] : [],
+    length(var.cache_bypass_hosts) > 0 ? [{
+      description       = "Cache Bypass Hosts"
+      action            = "set_cache_settings"
+      action_parameters = { cache = false }
+      expression        = join(" or ", [for h in var.cache_bypass_hosts : "(http.host eq \"${h}\")"])
+      ref               = local.refs.cache_bypass_hosts
+    }] : [],
   )
 }
 

@@ -234,7 +234,7 @@ variable "ai_bot_user_agents" {
 variable "rule_refs" {
   description = <<-EOT
     Override the ref of a generated rule, keyed by: icinga_allowlist, block_xmlrpc, block_ai_bots,
-    waf_cloudflare_managed, waf_owasp, cache_bypass_health_check, cache_bypass_admin, cache_everything.
+    waf_cloudflare_managed, waf_owasp, cache_bypass_health_check, cache_bypass_admin, cache_everything, cache_bypass_hosts.
     Adopted zones set these to the refs Cloudflare assigned, so import doesn't rewrite the rules.
   EOT
   type        = map(string)
@@ -318,6 +318,12 @@ variable "cache_everything" {
   description = "Cache every response that isn't bypassed above, HTML included."
   type        = bool
   default     = false
+}
+
+variable "cache_bypass_hosts" {
+  description = "Hostnames whose responses always bypass Cloudflare cache (set_cache_settings cache=false). Scopes a cache bypass to specific hostnames in a shared zone. Empty list drops the rule."
+  type        = list(string)
+  default     = []
 }
 
 # ---------------------------------------------------------------------------------------------------------------------

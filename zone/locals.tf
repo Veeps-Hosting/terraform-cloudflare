@@ -110,6 +110,7 @@ locals {
       cache_bypass_health_check = "cache_bypass_health_check"
       cache_bypass_admin        = "cache_bypass_admin"
       cache_everything          = "cache_everything"
+      cache_bypass_hosts        = "cache_bypass_hosts"
     },
     var.rule_refs,
   )
